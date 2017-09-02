@@ -188,7 +188,7 @@ public class BackupSessionPickerFragment extends LoadingFragment<Collection<Sess
 
         new MaterialDialog.Builder(getActivity())
                 .title(R.string.action_details)
-                .titleColorAttr(R.attr.colorAccent)
+//                .titleColorAttr(R.attr.colorAccent)
                 .content(systemInfo == null ? getStringSafety(R.string.sys_info_not_found)
                         : buildSystemInfo(systemInfo))
                 .positiveText(android.R.string.ok)
@@ -221,7 +221,7 @@ public class BackupSessionPickerFragment extends LoadingFragment<Collection<Sess
 
                 File dir = new File(SettingsProvider.getBackupSessionDir(session));
 
-                final File dest = new File(SettingsProvider.getCompressedRootDir() + File.separator + session.getName() + ".7z");
+                final File dest = new File(SettingsProvider.getCompressedRootDir() + File.separator + session.getName() + ".zip");
 
                 new DataCompressServiceProxy(getContext())
                         .compressAsync(dir.getPath(), dest.getPath(), new ActionListener<Boolean>() {

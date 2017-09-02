@@ -11,7 +11,6 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/eventbus" />
-            <option value="$PROJECT_DIR$/ftpserver" />
             <option value="$PROJECT_DIR$/interface-adapter-annotation" />
             <option value="$PROJECT_DIR$/interface-adapter-generator" />
             <option value="$PROJECT_DIR$/materialicons" />
@@ -21,6 +20,7 @@
             <option value="$PROJECT_DIR$/settingshook" />
             <option value="$PROJECT_DIR$/statemachine" />
             <option value="$PROJECT_DIR$/tiles" />
+            <option value="$PROJECT_DIR$/vangoghcore" />
             <option value="$PROJECT_DIR$/vcard-android" />
             <option value="$PROJECT_DIR$/wfdhook" />
           </set>

@@ -1,26 +1,41 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_name">数据迁移</string>
-    <string name="app_intro">数据备份以及迁移助手</string>
-    <string name="card_intro">点击卡片可以展开菜单</string>
-    <string name="fab_intro_list">当你完成数据选择时，点击此处完成选择并返回汇总页</string>
-    <string name="fab_intro_category_backup">当你完成数据选择时，点击此处即可开始进行备份</string>
-    <string name="fab_intro_category_restore">当你完成数据选择时，点击此处即可开始进行还原</string>
-    <string name="fab_intro_category_received">当你完成数据选择时，点击此处即可将所选数据导入手机</string>
-    <string name="fab_intro_category_send">当你完成数据选择时，点击此处即可开始进行传输</string>
-    <string name="backup_intro_actions">此卡片包括</string>
-    <string name="backup_intro_and">和</string>
+    <string name="app_name">Migrate</string>
+    <string name="app_intro">Data backup and migrate assistant</string>
+    <string name="card_intro">Click card to expand the menu</string>
+    <string name="fab_intro_list">Click this button to return to the overview page</string>
+    <string name="fab_intro_category_backup">Click this button to start backup</string>
+    <string name="fab_intro_category_restore">Click this button to start restore</string>
+    <string name="fab_intro_category_received">Click this button to start import</string>
+    <string name="fab_intro_category_send">Click this button to start sending</string>
+    <string name="backup_intro_actions">This card contains</string>
+    <string name="backup_intro_and">and</string>
     <string name="backup_intro">支持联系人，短信，通话记录，多媒体，无线局域网等数据备份与应用（数据）的本地备份。\n\n需要你授予联系人，电话，短信，文件读写等权限。</string>
     <string name="transport_intro">你现在可以在两台设备之间，快速互相传输文件。\n\n需要你授予位置信息权限。\n</string>
-    <string name="ftp_intro">文件传输协议FTP使得主机间可以共享文件。FTP客户机可以给服务器发出命令来下载文件，上传文件，创建或改变服务器上的目录。\n\n需要你授予文件读写权限，并确保连接到了无线网络。\n\n相关技术来自@Pieter的Swiftp项目。</string>
 
     <string name="title_activity_navigator">@string/app_name</string>
 
     <string name="yes">Y</string>
     <string name="no">N</string>
 
-    <string name="learn_more">了解更多</string>
+    <string name="title_need_help">Need help？</string>
 
 
+    <string name="transport_event_description_init">初始化</string>
+    <string name="transport_event_description_insert">插入数据库</string>
+    <string name="transport_event_description_create_dir">创建文件夹</string>
+    <string name="transport_event_description_copy_file">复制文件</string>
+    <string name="transport_event_description_copy_apk">复制APK</string>
+    <string name="transport_event_description_copy_data">复制应用数据</string>
+    <string name="transport_event_description_install_apk">安装应用</string>
+    <string name="transport_event_description_install_apk_wait_for_res">等待安装结果</string>
+    <string name="transport_event_description_install_data">安装数据</string>
+    <string name="transport_event_description_wait_for_def_sms_app">等待设置为默认短信应用</string>
+    <string name="transport_event_description_install_extra_data">安装附加数据</string>
+    <string name="transport_event_description_token_divider">&#160;</string>
+
+
+    <string name="permission_request">需要权限</string>
+    <string name="permission_request_message">我们需要你授予文件读写权限来保证应用的基本运作。请在接下来的请求对话框选择允许。</string>
     <string name="permission_missing">权限缺失</string>
     <string name="permission_missing_message">看起来我们无法请求一些权限，你可以继续使用，但可能会因此导致一些功能异常</string>
 
@@ -31,6 +46,7 @@
     <string name="action_rename">修改备注</string>
     <string name="action_compress">压缩(实验)</string>
     <string name="action_details">系统信息</string>
+    <string name="action_backup_event">备份记录</string>
     <string name="action_compressed">压缩完成</string>
     <string name="action_compressing">正在进行压缩，文件较多，请耐心等待</string>
     <string name="action_compress_background">后台</string>
@@ -42,6 +58,7 @@
     <string name="action_rename_fail">无法修改名称</string>
     <string name="action_select_all">全部选择</string>
     <string name="action_clear_selection">清除选择</string>
+    <string name="title_need_selection">请先选择要处理的数据</string>
     <string name="title_removed">已经删除：%1$s</string>
     <string name="title_remove_failed">无法删除：%1$s</string>
     <string name="title_remove_z">撤销</string>
@@ -67,6 +84,10 @@
     <string name="category_call">通话记录</string>
     <string name="category_custom">自定义文件</string>
     <string name="category_system_settings">系统设置(实验)</string>
+
+    <string name="title_transport_stats">状态与统计</string>
+    <string name="title_transport_stats_success">成功项</string>
+    <string name="title_transport_stats_fail">失败项</string>
 
     <string name="title_apk">安装包</string>
     <string name="title_data">数据</string>
@@ -124,11 +145,12 @@
     <string name="action_log">查看日志</string>
     <string name="action_log_with_other_app">在其他应用打开</string>
     <string name="action_preparing">正在准备…</string>
-    <string name="action_remark_backup">此次备份的备注为：</string>
-    <string name="action_remark_received">此次接收记录的备注为：</string>
+    <string name="action_remark_backup">此次备份的备注为：%1$s, 你稍后可以在本地备份中进行查看或修改。</string>
+    <string name="action_remark_received">此次接收记录的备注为：%1$s, 你稍后可以在接收记录中进行查看或修改。</string>
     <string name="action_remark_tips">，点击可进行修改。</string>
     <string name="action_viewer_tips_received">你稍后可以在 主页-卡片-我接收到的文件 里查看或者导入你的设备。</string>
     <string name="title_backup_at">%1$s</string>
+    <string name="title_backup_at_invalid_date">无法</string>
     <string name="title_backup_default_name">我的备份</string>
     <string name="title_received_default_name">我收到的</string>
     <string name="title_backup_invalid">无效备份</string>
@@ -153,9 +175,10 @@
     <string name="enforcing">执行中</string>
     <string name="permissive">许可</string>
     <string name="empty_title">天哪</string>
-    <string name="empty_summary">这里没有内容</string>
+    <string name="empty_summary">没有找到任何内容，你可以去【指定加载数据类型】查看是否关闭了某些数据类型的加载，再来尝试。</string>
 
-    <string name="oc_storage">存储统计：%1$s</string>
+    <string name="oc_storage_android">需要空间：%1$s</string>
+    <string name="oc_storage_backup">占用空间：%1$s</string>
 
     <string name="tile_category_storage">存储</string>
     <string name="tile_category_view">视觉（实验）</string>
@@ -169,6 +192,7 @@
     <string name="summary_transition_animation">开启更活泼的动画</string>
     <string name="tile_theme_color">主色</string>
     <string name="tips_theme_color">更改主题也会更改应用图标，请等待应用被重新启用</string>
+    <string name="title_launcher_icon">更改应用图标</string>
     <string name="tile_work_mode_root">备份/还原应用数据(实验)</string>
     <string name="summary_work_mode_root">为具有root权限的设备备份/还原应用数据，稍后将会检查并申请root权限，请在收到申请提示后，选择允许。还原之前注意要先关闭正在运行的相关应用，否则可能造成应用的数据丢失</string>
     <string name="tile_dev_mode">调试模式</string>
@@ -186,10 +210,6 @@
     <string name="title_transport_received_viewer">查看接收到的数据记录</string>
     <string name="title_transport_share">把[数据迁移]分享给别人</string>
     <string name="title_transport_share_tips">为了安全起见，Android禁止直接分享APK文件，因此我们把APK文件命名为JPEG文件，待对方收到该文件后，修改后缀名为APK即可安装使用</string>
-
-    <string name="title_ftp">FTP文件服务</string>
-    <string name="title_transport_ftp_control">开关FTP文件服务</string>
-    <string name="title_ftp_solution_provider">Solution provided by Swiftp</string>
 
     <string name="title_start">开始</string>
     <string name="title_card_actions">接下来你可以</string>
@@ -288,5 +308,8 @@
     <string name="title_dir_name">文件目录</string>
     <string name="title_not_set">尚未指定</string>
     <string name="title_dir_divider">多个目录使用英文逗号隔开</string>
-    <string name="title_activity_scrolling">ScrollingActivity</string>
+
+    <string name="warn_def_sms_app_title">需要修改设置</string>
+    <string name="warn_need_def_sms_app_message">需要设置本应用为默认短信才可以操作短信数据库。</string>
+    <string name="warn_restore_def_sms_app_message">目前本应用是系统的默认短信应用，现在我们来还原默认系统的短信应用设置。\n注意：如果设置失败，请手动去 系统-设置-应用设置 修改，否则你可能会无法接收到新的消息。</string>
 </resources>

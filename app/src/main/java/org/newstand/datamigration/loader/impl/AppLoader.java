@@ -54,8 +54,15 @@ public class AppLoader extends BaseLoader {
         for (PackageInfo packageInfo : packages) {
 
             AppRecord appRecord = new AppRecord();
-            // TODO Replace space with empty char.
-            appRecord.setDisplayName(packageInfo.applicationInfo.loadLabel(pm).toString());
+
+            String name = packageInfo.applicationInfo.loadLabel(pm).toString();
+            if (!TextUtils.isEmpty(name)) {
+                name = name.replace(" ", "");
+            } else {
+                Logger.w("Ignored app with empty name:%s", packageInfo);
+                continue;
+            }
+            appRecord.setDisplayName(name);
             appRecord.setPkgName(packageInfo.packageName);
             appRecord.setPath(packageInfo.applicationInfo.publicSourceDir);
 
@@ -81,7 +88,7 @@ public class AppLoader extends BaseLoader {
                 Logger.e("Failed to query size for:%s", appRecord);
             }
 
-            Bitmap bitmap = null;
+            Bitmap bitmap;
             OutputStream os = null;
             try {
                 Drawable icon = ApkUtil.loadIconByPkgName(getContext(), packageInfo.packageName);
@@ -92,14 +99,19 @@ public class AppLoader extends BaseLoader {
                 Files.createParentDirs(iconFile);
                 if (!iconFile.exists() && bitmap != null) {
                     os = Files.asByteSink(iconFile).openStream();
-                    if (bitmap.compress(Bitmap.CompressFormat.PNG, 100, os)) {
-
+                    try {
+                        if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, os)) {
+                            Logger.w("Fail compress bitmap");
+                        }
+                    } catch (Exception e) {
+                        Logger.e(e, "Fail compress bitmap");
                     }
                 }
             } catch (IOException e) {
                 Logger.e(e, "Fail compress bitmap");
             } finally {
-                if (bitmap != null) bitmap.recycle();
+                // Fix recycled bitmap can not be compressed issue.
+                // if (bitmap != null) bitmap.recycle();
                 Closer.closeQuietly(os);
             }
 
@@ -132,11 +144,12 @@ public class AppLoader extends BaseLoader {
                 source.getParent() == LoaderSource.Parent.Received ?
                         SettingsProvider.getReceivedDirByCategory(getDateCategory(), session)
                         : SettingsProvider.getBackupDirByCategory(getDateCategory(), session);
+        Logger.i("Loading app from session:%s, dir:%s", session, dir);
         Iterable<File> iterable = Files.fileTreeTraverser().children(new File(dir));
         Collections.consumeRemaining(iterable, new Consumer<File>() {
             @Override
             public void accept(@NonNull File file) {
-
+                Logger.i("Parsing apk file:%s", file);
                 AppRecord record = new AppRecord();
                 // TODO Replace space with empty char.
                 record.setDisplayName(Files.getNameWithoutExtension(file.getPath()));
@@ -197,6 +210,7 @@ public class AppLoader extends BaseLoader {
                     }
                 } else {
                     // Find app record info.
+                    Logger.d("Apk not exist, try read app info");
                     String jsonPath = file.getPath() + File.separator + SettingsProvider.getBackupAppApkDirName()
                             + File.separator + record.getDisplayName() + AppRecord.APK_META_PREFIX;
                     File jsonFile = new File(jsonPath);

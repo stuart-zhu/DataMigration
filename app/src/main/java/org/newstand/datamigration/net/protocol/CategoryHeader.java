@@ -1,10 +1,7 @@
 package org.newstand.datamigration.net.protocol;
 
 import android.support.annotation.NonNull;
-import android.util.Log;
 
-import com.google.common.base.Preconditions;
-import com.google.common.io.Files;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
@@ -16,13 +13,11 @@ import org.newstand.datamigration.data.model.FileBasedRecord;
 import org.newstand.datamigration.utils.Collections;
 import org.newstand.logger.Logger;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 
 import lombok.Getter;
 import lombok.ToString;
@@ -32,7 +27,7 @@ import lombok.ToString;
  * E-Mail: NewStand@163.com
  * All right reserved.
  */
-@ToString(exclude = "filesSet")
+@ToString
 public class CategoryHeader implements Serializable, DeSerializable, ByteWriter {
 
     private static final int BYTES = 2 * Ints.BYTES + Longs.BYTES;
@@ -44,11 +39,8 @@ public class CategoryHeader implements Serializable, DeSerializable, ByteWriter 
     @Getter
     private long fileSize;
 
-    private Set<String> filesSet;
-
     private CategoryHeader(DataCategory dataCategory) {
         this.dataCategory = dataCategory;
-        this.filesSet = new HashSet<>();
     }
 
     public static CategoryHeader empty() {
@@ -81,22 +73,14 @@ public class CategoryHeader implements Serializable, DeSerializable, ByteWriter 
             @Override
             public void accept(@NonNull DataRecord dataRecord) {
                 FileBasedRecord fb = (FileBasedRecord) dataRecord;
-                String path = fb.getPath();
-
-                Preconditions.checkNotNull(path);
-
-                if (!filesSet.contains(path)) {
-                    filesSet.add(path);
-
-                    try {
-                        long size = Files.asByteSource(new File(path)).size();
-                        fileSize += size;
-                    } catch (IOException e) {
-                        Logger.e(e, "Fail to get file size");
-                    }
-
-                    fileCount++;
+                try {
+                    long size = fb.calculateSize();
+                    fileSize += size;
+                } catch (IOException e) {
+                    Logger.e(e, "Fail to get file size");
                 }
+
+                fileCount++;
             }
         });
         return this;
@@ -115,7 +99,11 @@ public class CategoryHeader implements Serializable, DeSerializable, ByteWriter 
         byte[] categories = new byte[Ints.BYTES];
         System.arraycopy(data, Ints.BYTES + Longs.BYTES, categories, 0, categories.length);
         dataCategory = DataCategory.fromInt(Ints.fromByteArray(categories));
+        Logger.d("CategoryHeader:inflateWithBytes:%s", dataCategory);
 
+        if (dataCategory == null) {
+            Logger.e("Error parsing CategoryHeade:%s", Arrays.toString(data));
+        }
     }
 
     @Override

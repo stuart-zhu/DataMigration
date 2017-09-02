@@ -14,6 +14,7 @@ import org.newstand.datamigration.data.model.SMSRecord;
 import org.newstand.datamigration.provider.SettingsProvider;
 import org.newstand.datamigration.secure.EncryptManager;
 import org.newstand.datamigration.utils.BlackHole;
+import org.newstand.datamigration.worker.transport.RecordEvent;
 import org.newstand.logger.Logger;
 
 import java.io.File;
@@ -32,7 +33,7 @@ import static org.newstand.datamigration.data.SmsContentProviderCompat.SENT_CONT
  * E-Mail: NewStand@163.com
  * All right reserved.
  */
-class SMSBackupAgent implements BackupAgent<SMSBackupSettings, SMSRestoreSettings>, ContextWireable {
+class SMSBackupAgent extends ProgressableBackupAgent<SMSBackupSettings, SMSRestoreSettings> implements ContextWireable {
 
     @Getter
     @Setter
@@ -48,13 +49,14 @@ class SMSBackupAgent implements BackupAgent<SMSBackupSettings, SMSRestoreSetting
         String destPath = backupSettings.getDestPath();
         Files.createParentDirs(new File(destPath));
 
+        getProgressListener().onProgress(RecordEvent.FileCopy, 0);
+
         OutputStream os = Files.asByteSink(new File(destPath)).openStream();
         ObjectOutputStream oos = new ObjectOutputStream(os);
         oos.writeObject(backupSettings.getSmsRecord());
         oos.flush();
         os.close();
         oos.close();
-
 
         // Encrypt
         boolean encrypt = SettingsProvider.isEncryptEnabled();
@@ -70,11 +72,23 @@ class SMSBackupAgent implements BackupAgent<SMSBackupSettings, SMSRestoreSetting
         // Update file path
         backupSettings.getSmsRecord().setPath(destPath);
 
+        getProgressListener().onProgress(RecordEvent.FileCopy, 100);
+
         return Res.OK;
     }
 
     @Override
     public Res restore(SMSRestoreSettings restoreSettings) throws Exception {
+        // Set us as Def Sms app
+        getProgressListener().onProgress(RecordEvent.WaitForSMSDefApp, 0);
+        SmsContentProviderCompat.setAsDefaultSmsApp(getContext());
+        getProgressListener().onProgress(RecordEvent.WaitForSMSDefApp, 50);
+        boolean isDefSmsApp = SmsContentProviderCompat.waitUtilBecomeDefSmsApp(getContext());
+        if (!isDefSmsApp) {
+            Logger.e("Timeout waiting for DEF SMS APP setup");
+            return new NotDefaultSMSAppErr();
+        }
+        getProgressListener().onProgress(RecordEvent.WaitForSMSDefApp, 100);
         SMSRecord smsRecord = restoreSettings.getSmsRecord();
         writeSMS(smsRecord);
         return Res.OK;
@@ -82,6 +96,8 @@ class SMSBackupAgent implements BackupAgent<SMSBackupSettings, SMSRestoreSetting
 
     /* Write all messages contained in smsbk back to content provider */
     private void writeSMS(SMSRecord smsRecord) {
+
+        getProgressListener().onProgress(RecordEvent.Insert, 0);
 
         ContentResolver cr = getContext().getContentResolver();
         ContentValues values = new ContentValues();
@@ -116,5 +132,7 @@ class SMSBackupAgent implements BackupAgent<SMSBackupSettings, SMSRestoreSetting
 
                 cr.insert(DRAFT_CONTENT_URI, values);
         }
+
+        getProgressListener().onProgress(RecordEvent.Insert, 100);
     }
 }

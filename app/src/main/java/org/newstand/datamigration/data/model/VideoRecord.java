@@ -1,9 +1,8 @@
 package org.newstand.datamigration.data.model;
 
-import android.os.Parcel;
-import android.os.Parcelable;
-
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
 /**
@@ -13,10 +12,11 @@ import lombok.ToString;
  */
 @NoArgsConstructor
 @ToString(callSuper = true)
-public class VideoRecord extends FileBasedRecord implements Parcelable {
-    private VideoRecord(Parcel in) {
-        super(in);
-    }
+public class VideoRecord extends FileBasedRecord {
+
+    @Getter
+    @Setter
+    private long duration;
 
     @Override
     public DataCategory category() {

@@ -2,30 +2,34 @@ package org.newstand.datamigration.ui.activity;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
 import android.support.v4.app.Fragment;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.widget.Toolbar;
+import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
 
-import com.github.paolorotolo.appintro.BuildConfig;
+import com.afollestad.materialdialogs.DialogAction;
+import com.afollestad.materialdialogs.MaterialDialog;
+import com.github.javiersantos.materialstyleddialogs.MaterialStyledDialog;
 import com.google.common.collect.ImmutableList;
 import com.tbruyelle.rxpermissions2.RxPermissions;
 
 import org.newstand.datamigration.R;
-import org.newstand.datamigration.common.Producer;
-import org.newstand.datamigration.provider.SettingsProvider;
 import org.newstand.datamigration.provider.ThemeColor;
 import org.newstand.datamigration.ui.FragmentController;
 import org.newstand.datamigration.ui.fragment.BackupRestoreNavigatorFragment;
-import org.newstand.datamigration.ui.fragment.FTPServerNavigatorFragment;
 import org.newstand.datamigration.ui.fragment.SenderReceiverNavigatorFragment;
+import org.newstand.datamigration.utils.UserManagerCompat;
 
 import java.util.List;
 
@@ -37,7 +41,6 @@ public class DrawerNavigatorActivity extends BaseNavigatorActivity
 
     private static final int INDEX_BACKUP_RESTORE = 0;
     private static final int INDEX_SENDER_RECEIVER = 1;
-    private static final int INDEX_FTP_SERVER = 2;
 
     @Getter
     private FragmentController cardController;
@@ -57,19 +60,21 @@ public class DrawerNavigatorActivity extends BaseNavigatorActivity
                 break;
         }
         handler = new Handler();
-        requestPerms();
-        if (!SettingsProvider.isAppIntroNoticed(BuildConfig.VERSION_NAME)) {
-            startActivity(new Intent(this, AppIntroActivity.class));
+        showRetention();
+        updateUserName();
+    }
+
+    protected void updateUserName() {
+        TextView textView = (TextView) findViewById(R.id.user_name);
+        String name = UserManagerCompat.getCurrentUserName(this);
+        if (!TextUtils.isEmpty(name)) {
+            textView.setText(name);
         }
     }
 
     private void requestPerms() {
-        RxPermissions rxPermissions = new RxPermissions(this);
-        rxPermissions.request(Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                Manifest.permission.ACCESS_NETWORK_STATE,
-                Manifest.permission.ACCESS_WIFI_STATE,
-                Manifest.permission.READ_PHONE_STATE)
+        RxPermissions rxPermissions = new RxPermissions(DrawerNavigatorActivity.this);
+        rxPermissions.request(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 .subscribe(new Consumer<Boolean>() {
                     @Override
                     public void accept(Boolean granted) throws Exception {
@@ -80,6 +85,36 @@ public class DrawerNavigatorActivity extends BaseNavigatorActivity
                         }
                     }
                 });
+    }
+
+    private void showRetention() {
+        boolean hasBasicPermission = ContextCompat.checkSelfPermission(getApplicationContext(),
+                Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+        if (!hasBasicPermission) {
+            new MaterialStyledDialog.Builder(this)
+                    .setTitle(R.string.permission_request)
+                    .setDescription(R.string.permission_request_message)
+                    .setHeaderDrawable(R.drawable.photo_backup_help_card_header)
+                    .withDarkerOverlay(false)
+                    .setCancelable(false)
+                    .setPositiveText(android.R.string.ok)
+                    .setNegativeText(android.R.string.cancel)
+                    .onPositive(new MaterialDialog.SingleButtonCallback() {
+                        @Override
+                        public void onClick(@NonNull MaterialDialog dialog, @NonNull DialogAction which) {
+                            requestPerms();
+                        }
+                    })
+                    .onNegative(new MaterialDialog.SingleButtonCallback() {
+                        @Override
+                        public void onClick(@NonNull MaterialDialog dialog, @NonNull DialogAction which) {
+                            finish();
+                        }
+                    })
+                    .show();
+        } else {
+            onPermissionGrant();
+        }
     }
 
     private void onPermissionNotGrant() {
@@ -109,7 +144,6 @@ public class DrawerNavigatorActivity extends BaseNavigatorActivity
         toggle.syncState();
 
         NavigationView navigationView = findView(R.id.nav_view);
-        navigationView.getMenu().findItem(R.id.nav_ftp).setVisible(SettingsProvider.isDebugEnabled());
         navigationView.setNavigationItemSelectedListener(this);
 
         navigationView.setCheckedItem(R.id.nav_backup_restore);
@@ -119,8 +153,7 @@ public class DrawerNavigatorActivity extends BaseNavigatorActivity
         final List<? extends Fragment> cards =
                 ImmutableList.of(
                         BackupRestoreNavigatorFragment.create(),
-                        SenderReceiverNavigatorFragment.create(),
-                        FTPServerNavigatorFragment.create());
+                        SenderReceiverNavigatorFragment.create());
         cardController = new FragmentController(getSupportFragmentManager(), cards, R.id.container);
         cardController.setDefaultIndex(INDEX_BACKUP_RESTORE);
         cardController.setCurrent(INDEX_BACKUP_RESTORE);
@@ -154,10 +187,6 @@ public class DrawerNavigatorActivity extends BaseNavigatorActivity
                 break;
             case R.id.nav_sender_receiver:
                 getCardController().setCurrent(INDEX_SENDER_RECEIVER);
-                updateTitle();
-                break;
-            case R.id.nav_ftp:
-                getCardController().setCurrent(INDEX_FTP_SERVER);
                 updateTitle();
                 break;
             case R.id.nav_settings:
@@ -205,28 +234,30 @@ public class DrawerNavigatorActivity extends BaseNavigatorActivity
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        switch (getThemeColor()) {
-            case White:
-                getMenuInflater().inflate(R.menu.help_dark, menu);
-                break;
-            default:
-                getMenuInflater().inflate(R.menu.help, menu);
-                break;
-        }
+//        switch (getThemeColor()) {
+//            case White:
+//                getMenuInflater().inflate(R.menu.trend_dark, menu);
+//                break;
+//            default:
+//                getMenuInflater().inflate(R.menu.trend, menu);
+//                break;
+//        }
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_help) {
+        if (item.getItemId() == R.id.action_trend) {
             transitionTo(new Intent(this, HelpActivity.class));
         }
         return true;
     }
 
     private void updateTitle() {
-        Fragment card = getCardController().getCurrent();
-        @SuppressWarnings("unchecked") Producer<Integer> titleProducer = (Producer<Integer>) card;
-        // setTitle(titleProducer.produce());
+    }
+
+    @Override
+    public boolean isMainActivity() {
+        return true;
     }
 }

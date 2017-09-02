@@ -8,6 +8,7 @@ import android.support.multidex.MultiDex;
 import android.support.v7.app.AppCompatDelegate;
 
 import org.newstand.datamigration.common.Consumer;
+import org.newstand.datamigration.data.SmsContentProviderCompat;
 import org.newstand.datamigration.provider.SettingsProvider;
 import org.newstand.datamigration.provider.ThemeManager;
 import org.newstand.datamigration.secure.DonateQRPathRetriever;
@@ -16,10 +17,10 @@ import org.newstand.datamigration.service.UserActionServiceProxy;
 import org.newstand.datamigration.service.schedule.SchedulerServiceProxy;
 import org.newstand.datamigration.utils.NoMediaUtil;
 import org.newstand.datamigration.utils.OnDeviceLogAdapter;
+import org.newstand.datamigration.utils.RootChecker;
 import org.newstand.logger.Logger;
 import org.newstand.logger.Settings;
 
-import be.ppareit.swiftp.App;
 import lombok.Getter;
 
 /**
@@ -71,19 +72,19 @@ public class DataMigrationApp extends Application {
         });
         topActivityObserver.setOnMainActivityStartConsumer(new Consumer<Activity>() {
             @Override
-            public void accept(@NonNull Activity activity) {
+            public void accept(@NonNull final Activity activity) {
                 Logger.d("MainActivity has been started, starting core service...");
                 startCore();
+                SmsContentProviderCompat.restoreDefSmsAppRetentionCheckedAsync(activity);
             }
         });
         registerActivityLifecycleCallbacks(topActivityObserver);
 
         ThemeManager.init(this);
 
-        // Swiftp
-        App.INSTANCE.onCreate(this);
-
         NoMediaUtil.createNoMediaFileAsync(SettingsProvider.getDataMigrationRootDir());
+
+        RootChecker.checkRootAndApplySettingsAsync();
     }
 
     private void startCore() {

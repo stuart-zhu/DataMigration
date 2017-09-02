@@ -31,7 +31,7 @@ import lombok.Setter;
  * All right reserved.
  */
 
-public class CallLogBackupAgent implements BackupAgent<CallLogBackupSettings, CallLogRestoreSettings>, ContextWireable {
+public class CallLogBackupAgent extends ProgressableBackupAgent<CallLogBackupSettings, CallLogRestoreSettings> implements ContextWireable {
 
     @Getter
     @Setter
@@ -41,8 +41,8 @@ public class CallLogBackupAgent implements BackupAgent<CallLogBackupSettings, Ca
     public Res backup(CallLogBackupSettings backupSettings) throws Exception {
         String destPath = backupSettings.getDestPath();
         Files.createParentDirs(new File(destPath));
-        Gson gson = new Gson();// FIXME Should we use single instance?
-        String callStr = gson.toJson(backupSettings.getDataRecord()[0]); // FIXME Make more~
+        Gson gson = new Gson();
+        String callStr = gson.toJson(backupSettings.getDataRecord()[0]);
         boolean ok = org.newstand.datamigration.utils.Files.writeString(callStr, destPath);
         if (!ok) return new WriteFailError();
 

@@ -7,6 +7,7 @@ import android.support.annotation.WorkerThread;
 import org.newstand.datamigration.cache.LoadingCacheManager;
 import org.newstand.datamigration.common.AbortSignal;
 import org.newstand.datamigration.common.Consumer;
+import org.newstand.datamigration.data.event.TransportEventRecord;
 import org.newstand.datamigration.data.model.DataCategory;
 import org.newstand.datamigration.data.model.DataRecord;
 import org.newstand.datamigration.net.BadResError;
@@ -16,25 +17,27 @@ import org.newstand.datamigration.net.DataRecordSender;
 import org.newstand.datamigration.net.IORES;
 import org.newstand.datamigration.net.NextPlanSender;
 import org.newstand.datamigration.net.OverViewSender;
-import org.newstand.datamigration.net.PathCreator;
 import org.newstand.datamigration.net.server.TransportClient;
 import org.newstand.datamigration.provider.SettingsProvider;
+import org.newstand.datamigration.repo.TransportEventRecordRepoService;
 import org.newstand.datamigration.utils.Collections;
+import org.newstand.datamigration.worker.transport.Event;
+import org.newstand.datamigration.worker.transport.RecordEvent;
 import org.newstand.datamigration.worker.transport.Session;
-import org.newstand.datamigration.worker.transport.Stats;
 import org.newstand.datamigration.worker.transport.TransportListener;
+import org.newstand.datamigration.worker.transport.TransportListenerAdapter;
+import org.newstand.datamigration.worker.transport.backup.TransportType;
 import org.newstand.logger.Logger;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Observable;
 import java.util.Observer;
 
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.ToString;
 
 /**
  * Created by Nick@NewStand.org on 2017/4/10 13:14
@@ -53,14 +56,19 @@ public class DataSenderProxy {
 
     @WorkerThread
     public static void send(final Context context, final TransportClient client,
+                            final Session session,
                             final TransportListener listener, AbortSignal abortSignal) {
-        new DataSenderProxy().sendInternal(context, client, listener, abortSignal);
+        new DataSenderProxy().sendInternal(context, client,
+                EventRecorderTransportListenerProxy.delegate(context, listener, session,
+                        TransportType.Send), abortSignal);
     }
 
     @WorkerThread
     public static void send(final Context context, final TransportClient client,
+                            final Session session,
                             final TransportListener listener) {
-        new DataSenderProxy().sendInternal(context, client, listener, new AbortSignal());
+        new DataSenderProxy().sendInternal(context, client, EventRecorderTransportListenerProxy
+                .delegate(context, listener, session, TransportType.Send), new AbortSignal());
     }
 
 
@@ -74,6 +82,8 @@ public class DataSenderProxy {
             }
         });
 
+        transportListener.onEvent(Event.Prepare);
+
         final LoadingCacheManager cacheManager = LoadingCacheManager.droid();
 
         // Create a session, later we saved it to receiver.
@@ -86,27 +96,23 @@ public class DataSenderProxy {
             @Override
             public void accept(@NonNull DataCategory category) {
                 Collection<DataRecord> records = cacheManager.checked(category);
-
-                PathCreator.createIfNull(context, session, records);
-
+                Logger.v("Adding %s of size %s to overview header", category, records.size());
                 overviewHeader.add(category, records);
             }
         });
 
+        transportListener.onEvent(Event.ReadyToTransport);
+
         try {
             Logger.d("Sending overviewHeader: %s", overviewHeader);
-            OverViewSender.with(transportClient.getInputStream(), transportClient.getOutputStream()).send(overviewHeader);
+            OverViewSender.with(transportClient.getInputStream(),
+                    transportClient.getOutputStream()).send(overviewHeader);
         } catch (IOException e) {
             transportListener.onAbort(e);
             // Serious err.
             transportClient.stop();
             return;
         }
-
-        // Init stats
-        final SimpleStats stats = new SimpleStats();
-        stats.init(overviewHeader.getFileCount());
-        transportListener.setStats(stats);
 
         transportListener.onStart();
 
@@ -116,27 +122,39 @@ public class DataSenderProxy {
             // Do not send anything if empty.
             if (Collections.isNullOrEmpty(records)) continue;
 
+
             // Send category header
             CategoryHeader categoryHeader = CategoryHeader.from(category);
             categoryHeader.add(records);
 
-            Logger.d("Sending categoryHeader: %s", categoryHeader);
+            Logger.d("Sending categoryHeader: %s, byte content:%s",
+                    categoryHeader, Arrays.toString(categoryHeader.toBytes()));
 
             try {
                 CategorySender.with(transportClient.getInputStream(), transportClient.getOutputStream()).send(categoryHeader);
-
+                float pending = records.size();
+                float sent = 0f;
                 for (DataRecord dataRecord : records) {
+
                     try {
-                        transportListener.onPieceStart(dataRecord);
-                        int res = DataRecordSender.with(transportClient.getOutputStream(),
-                                transportClient.getInputStream())
-                                .send(dataRecord);
-                        if (res == IORES.OK) {
-                            stats.onSuccess();
-                            transportListener.onPieceSuccess(dataRecord);
-                        } else {
-                            transportListener.onPieceFail(dataRecord, new BadResError(res));
-                            stats.onFail();
+                        transportListener.onRecordStart(dataRecord);
+                        DataRecordSender recordSender = DataRecordSender.with(transportClient.getOutputStream(),
+                                transportClient.getInputStream(), session);
+                        recordSender.wire(context);
+
+
+                        try {
+                            int res = recordSender.send(dataRecord);
+                            if (res == IORES.OK) {
+                                transportListener.onRecordSuccess(dataRecord);
+                            } else {
+                                transportListener.onRecordFail(dataRecord, new BadResError(res));
+                            }
+                        } catch (Throwable e) {
+                            transportListener.onRecordFail(dataRecord, e);
+                        } finally {
+                            sent = sent + 1;
+                            transportListener.onProgressUpdate((sent / pending) * 100);
                         }
 
                         // Send next plan, to cancel or continue?
@@ -149,8 +167,7 @@ public class DataSenderProxy {
                         }
 
                     } catch (IOException e) {
-                        transportListener.onPieceFail(dataRecord, e);
-                        stats.onFail();
+                        transportListener.onRecordFail(dataRecord, e);
                     }
                 } // End for.
 
@@ -171,43 +188,97 @@ public class DataSenderProxy {
         org.newstand.datamigration.utils.Files.deleteDir(new File(SettingsProvider.getBackupSessionDir(session)));
     }
 
-    @ToString
-    private static class SimpleStats implements Stats {
 
-        @Setter(AccessLevel.PACKAGE)
+    private static class EventRecorderTransportListenerProxy extends TransportListenerAdapter {
+        public static TransportListener delegate(Context context, TransportListener in, Session session, TransportType transportType) {
+            return new EventRecorderTransportListenerProxy(context, in, session, transportType);
+        }
+
         @Getter
-        private int total, left, success, fail;
+        private Context context;
 
-        private void init(int size) {
-            total = left = size;
-            Logger.d("init status %s", toString());
-        }
+        private TransportListener listener;
+        @Getter
+        private Session session;
 
-        private void onPiece() {
-            left--;
-        }
+        @Getter
+        private TransportType transportType;
 
-        @Override
-        public void onSuccess() {
-            success++;
-            onPiece();
-        }
-
-        @Override
-        public void onFail() {
-            fail++;
-            onPiece();
+        EventRecorderTransportListenerProxy(Context context, TransportListener listener, Session session, TransportType transportType) {
+            this.context = context;
+            this.listener = listener;
+            this.session = session;
+            this.transportType = transportType;
         }
 
         @Override
-        public Stats merge(Stats with) {
+        public void onStart() {
+            listener.onStart();
+        }
 
-            total += with.getTotal();
-            left += with.getLeft();
-            success += with.getSuccess();
-            fail += with.getFail();
+        @Override
+        public void onRecordStart(DataRecord record) {
+            listener.onRecordStart(record);
+        }
 
-            return this;
+        @Override
+        public void onRecordProgressUpdate(DataRecord record, RecordEvent recordEvent, float progress) {
+            listener.onRecordProgressUpdate(record, recordEvent, progress);
+        }
+
+        @Override
+        public void onProgressUpdate(float progress) {
+            super.onProgressUpdate(progress);
+            listener.onProgressUpdate(progress);
+        }
+
+        @Override
+        public void onRecordSuccess(DataRecord record) {
+
+            try {
+                TransportEventRecord transportEventRecord = TransportEventRecord.builder()
+                        .category(record.category())
+                        .dataRecord(record)
+                        .success(true)
+                        .when(System.currentTimeMillis())
+                        .build();
+
+                TransportEventRecordRepoService.from(getSession(), getTransportType()).insert(getContext(), transportEventRecord);
+            } catch (Throwable e) {
+                Logger.e(e, "Fail insert event");
+            }
+
+            listener.onRecordSuccess(record);
+        }
+
+        @Override
+        public void onRecordFail(DataRecord record, Throwable err) {
+            try {
+                TransportEventRecord transportEventRecord = TransportEventRecord.builder()
+                        .category(record.category())
+                        .dataRecord(record)
+                        .success(false)
+                        .errMessage(err.getMessage())
+                        .errTrace(Logger.getStackTraceString(err))
+                        .when(System.currentTimeMillis())
+                        .build();
+                TransportEventRecordRepoService.from(getSession(), getTransportType())
+                        .insert(getContext(), transportEventRecord);
+            } catch (Throwable e) {
+                Logger.e(e, "Fail insert event");
+            }
+
+            listener.onRecordFail(record, err);
+        }
+
+        @Override
+        public void onComplete() {
+            listener.onComplete();
+        }
+
+        @Override
+        public void onAbort(Throwable err) {
+            listener.onAbort(err);
         }
     }
 }
